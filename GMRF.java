@@ -3,6 +3,7 @@ package bayesianOptimization;
 import org.apache.commons.math3.linear.*;
 import org.apache.commons.math3.distribution.*;
 import java.util.*;
+import java.io.*;
 
 public class GMRF {
 	
@@ -28,6 +29,9 @@ public class GMRF {
 	
 	int SIZE = 11;
 	int DIM = 3;
+	String filename_input = "C:\\Analysis\\20_input\\input" + DIM + ".csv";
+	String filename_output = "C:\\Analysis\\30_train\\log" + DIM + ".csv";
+	
 	double[][] Laplacian;
 	double ALPHA = 1.0;
 	
@@ -36,8 +40,80 @@ public class GMRF {
 	
 	Feedback[] fb_list;
 	double[] performance_list;
-
-	public void initialperformance() {
+	
+	public void setparameter(String[] args) {
+		if (args.length>=1) {
+			SIZE = Integer.valueOf(args[0]);
+		}
+		
+		if (args.length>=2) {
+			DIM = Integer.valueOf(args[1]);
+		}
+		
+		if (args.length>=3) {
+			filename_input = args[2];
+		}
+		
+		if (args.length>=4) {
+			filename_output = args[3];
+		}
+		
+		System.out.println("[SIZE] " + SIZE);
+		System.out.println("[DIM] " + DIM);
+		System.out.println("[INPUT] " + filename_input);
+		System.out.println("[OUTPUT] " + filename_output);
+	}
+	
+	public void initialperformance2(String filename) {
+		int len = (int)Math.pow(SIZE,DIM);
+		performance_list = new double[len];
+		
+		try {
+			FileReader fr = new FileReader(filename);
+			BufferedReader br = new BufferedReader(fr);
+			String s;
+			
+			while ((s=br.readLine())!=null) {
+				String[] ss = s.split(",");
+				int s1 = Integer.valueOf(ss[0]);
+				int s2 = Integer.valueOf(ss[1]);
+				double y = Double.valueOf(ss[2]);
+				int index = s1*SIZE + s2;
+				performance_list[index] = y;
+			}
+			
+			fr.close();
+		} catch (Exception e) {
+			System.out.println(e);
+		}
+	}
+	
+	public void initialperformance3(String filename) {
+		int len = (int)Math.pow(SIZE,DIM);
+		performance_list = new double[len];
+		
+		try {
+			FileReader fr = new FileReader(filename);
+			BufferedReader br = new BufferedReader(fr);
+			String s;
+			
+			while ((s=br.readLine())!=null) {
+				String[] ss = s.split(",");
+				int s1 = Integer.valueOf(ss[0]);
+				int s2 = Integer.valueOf(ss[1]);
+				int s3 = Integer.valueOf(ss[2]);
+				double y = Double.valueOf(ss[3]);
+				int index = s1*SIZE*SIZE + s2*SIZE + s3;
+				performance_list[index] = y;
+			}
+			
+			fr.close();
+		} catch (Exception e) {
+			System.out.println(e);
+		}
+	}
+	
+/*	public void initialperformance() {
 		int len = (int)Math.pow(SIZE,DIM);
 		performance_list = new double[len];
 		int index = 0;
@@ -51,7 +127,7 @@ public class GMRF {
 				}
 			}
 		}
-	}
+	}*/
 	
 	public double[][] construct(double[][] base) {
 		int len = base.length;
@@ -225,15 +301,45 @@ public class GMRF {
 	public double getfeedback(int trial) {
 		double performance = performance_list[trial];
 		NormalDistribution nd = new NormalDistribution();
-		double s = nd.sample()*0.05;
+		double s = nd.sample()*0.2;
 		double fb = performance + s;
 		System.out.println("" + trial + ": " + performance + ", " + fb);
+		
+		int[] idx = new int[4];
+		int t = trial;
+		for (int i=0; i<4; i++) {
+			idx[i] = t%SIZE;
+			t = (t-idx[i])/SIZE;
+		}
+		
+		try {
+			FileWriter fw = new FileWriter(filename_output, true);
+			if (DIM==2) {
+				fw.write("" + trial + "," + idx[1] + "," + idx[0] + "," + performance + "," + fb + "\n");
+			} else if (DIM==3) {
+				fw.write("" + trial + "," + idx[2] + "," + idx[1] + "," + idx[0] + "," + performance + "," + fb + "\n");
+			} else if (DIM==4) {
+				fw.write("" + trial + "," + idx[3] + "," + idx[2] + "," + idx[1] + "," + idx[0] + "," + performance + "," + fb + "\n");
+			}
+			fw.close();
+		} catch (Exception e) {
+			System.out.println(e);
+		}
+		
 		return fb;
 	}
 	
 	public void run() {
 		System.out.println("Starting...");
-		initialperformance();
+		if (DIM == 2) {
+			initialperformance2(filename_input);
+		} else if (DIM == 3) {
+			initialperformance3(filename_input);
+		} else {
+			System.out.println("DIM is error!");
+			return;
+		}
+		
 		System.out.println("Constructing...");
 		construct();
 		//printmatrix(Laplacian);
@@ -246,6 +352,12 @@ public class GMRF {
 		System.out.println(InvalidIndex);
 		System.out.println(InvalidIndex.size());
 		
+		try {
+			FileWriter fw = new FileWriter(filename_output);
+			fw.close();
+		} catch (Exception e) {
+			System.out.println(e);
+		}
 		for (int n=0; n<1000; n++) {
 			if (n==600) {
 				System.out.println(n);
@@ -258,6 +370,7 @@ public class GMRF {
 	
 	public static void main(String[] args) {
 		GMRF g = new GMRF();
+		g.setparameter(args);
 		g.run();
 	}
 
