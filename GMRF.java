@@ -27,10 +27,50 @@ public class GMRF {
 		}
 	}
 	
+	class Sampler {
+		int idx;
+		HashSet<Integer> neighbors = new HashSet<Integer>();
+		double average;
+		double std;
+		double sample;
+		
+		public Sampler(int idx) {
+			this.idx = idx;
+		}
+		
+		public void initial() {
+			for (int i=0; i<Laplacian.length; i++) {
+				if (i!=idx && Laplacian[idx][i]==-1.0) {
+					neighbors.add(i);
+				}
+			}
+		}
+		
+		public void sample() {
+			double count = 1;
+			double sum = 0;
+			
+			for (Iterator<Integer> it=neighbors.iterator(); it.hasNext(); ) {
+				int i = it.next();
+				count = count+1*4;
+				sum = sum + sampler_list[i].sample*4;
+			}
+			
+			count = count+fb_list[idx].count*25;
+			sum = sum+fb_list[idx].sum*25;
+			
+			average = sum/count;
+			std = 1.0/Math.sqrt(count);
+			
+			NormalDistribution nd = new NormalDistribution();
+			sample = average + nd.sample()*std;
+		}
+	}
+	
 	int SIZE = 11;
 	int DIM = 3;
 	String filename_input = "C:\\Analysis\\20_input\\input" + DIM + ".csv";
-	String filename_output = "C:\\Analysis\\30_train\\log" + DIM + ".csv";
+	String filename_output = "C:\\Analysis\\30_trainTS\\log" + DIM + ".csv";
 	
 	double[][] Laplacian;
 	double ALPHA = 1.0;
@@ -40,6 +80,7 @@ public class GMRF {
 	
 	Feedback[] fb_list;
 	double[] performance_list;
+	Sampler[] sampler_list;
 	
 	public void setparameter(String[] args) {
 		if (args.length>=1) {
@@ -329,7 +370,44 @@ public class GMRF {
 		return fb;
 	}
 	
-	public void run() {
+	public void initialsamplers() {
+		int len = Laplacian.length;
+		sampler_list = new Sampler[len];
+		for (int l=0; l<len; l++) {
+			sampler_list[l] = new Sampler(l);
+			sampler_list[l].initial();
+		}
+	}
+	
+	public int TS() {
+		int len = Laplacian.length;
+		
+		for (int t=0; t<100; t++) {
+			for (int l=0; l<len; l++) {
+				sampler_list[l].sample();
+			}
+		}
+		
+		int trial = -1;
+		double ts_largest = -10000;
+		double average = 0;
+		double std = 0;
+		for (Iterator<Integer> it=ValidIndex.iterator(); it.hasNext(); ) {
+			int index = it.next();
+			double ts = sampler_list[index].sample;
+			if (ts>ts_largest) {
+				trial = index;
+				ts_largest = ts;
+				average = sampler_list[index].average;
+				std = sampler_list[index].std;
+			}
+		}
+		
+		System.out.print("" + average + ", " + std + ", " + ts_largest + " === ");
+		return trial;
+	}
+	
+	public void runUCB() {
 		System.out.println("Starting...");
 		if (DIM == 2) {
 			initialperformance2(filename_input);
@@ -368,10 +446,52 @@ public class GMRF {
 		}
 	}
 	
+	public void runTS() {
+		System.out.println("Starting...");
+		if (DIM == 2) {
+			initialperformance2(filename_input);
+		} else if (DIM == 3) {
+			initialperformance3(filename_input);
+		} else {
+			System.out.println("DIM is error!");
+			return;
+		}
+		
+		System.out.println("Constructing...");
+		construct();
+		//printmatrix(Laplacian);
+		//System.out.println("Eigen decomposition...");
+		//eigendecomposition(Laplacian);
+		getvalidindex();
+		
+		System.out.println(ValidIndex);
+		System.out.println(ValidIndex.size());
+		System.out.println(InvalidIndex);
+		System.out.println(InvalidIndex.size());
+		
+		initialsamplers();
+		
+		try {
+			FileWriter fw = new FileWriter(filename_output);
+			fw.close();
+		} catch (Exception e) {
+			System.out.println(e);
+		}
+		for (int n=0; n<1000; n++) {
+			if (n==600) {
+				System.out.println(n);
+			}
+			int trial = TS();
+			double fb = getfeedback(trial);
+			fb_list[trial].addfeedback(fb);
+		}
+	}
+	
 	public static void main(String[] args) {
 		GMRF g = new GMRF();
 		g.setparameter(args);
-		g.run();
+		//g.runUCB();
+		g.runTS();
 	}
 
 }
