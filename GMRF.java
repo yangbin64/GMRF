@@ -71,6 +71,7 @@ public class GMRF {
 	int DIM = 3;
 	String filename_input = "C:\\Analysis\\20_input\\input" + DIM + ".csv";
 	String filename_output = "C:\\Analysis\\30_trainTS\\log" + DIM + ".csv";
+	String bandit_type = "UCB";
 	
 	double[][] Laplacian;
 	double ALPHA = 1.0;
@@ -99,10 +100,15 @@ public class GMRF {
 			filename_output = args[3];
 		}
 		
+		if (args.length>=5) {
+			bandit_type = args[4];
+		}
+		
 		System.out.println("[SIZE] " + SIZE);
 		System.out.println("[DIM] " + DIM);
 		System.out.println("[INPUT] " + filename_input);
 		System.out.println("[OUTPUT] " + filename_output);
+		System.out.println("[BANDIT] " + bandit_type);
 	}
 	
 	public void initialperformance2(String filename) {
@@ -145,6 +151,32 @@ public class GMRF {
 				int s3 = Integer.valueOf(ss[2]);
 				double y = Double.valueOf(ss[3]);
 				int index = s1*SIZE*SIZE + s2*SIZE + s3;
+				performance_list[index] = y;
+			}
+			
+			fr.close();
+		} catch (Exception e) {
+			System.out.println(e);
+		}
+	}
+	
+	public void initialperformance4(String filename) {
+		int len = (int)Math.pow(SIZE,DIM);
+		performance_list = new double[len];
+		
+		try {
+			FileReader fr = new FileReader(filename);
+			BufferedReader br = new BufferedReader(fr);
+			String s;
+			
+			while ((s=br.readLine())!=null) {
+				String[] ss = s.split(",");
+				int s1 = Integer.valueOf(ss[0]);
+				int s2 = Integer.valueOf(ss[1]);
+				int s3 = Integer.valueOf(ss[2]);
+				int s4 = Integer.valueOf(ss[3]);
+				double y = Double.valueOf(ss[4]);
+				int index = s1*SIZE*SIZE*SIZE + s2*SIZE*SIZE + s3*SIZE + s4;
 				performance_list[index] = y;
 			}
 			
@@ -413,6 +445,8 @@ public class GMRF {
 			initialperformance2(filename_input);
 		} else if (DIM == 3) {
 			initialperformance3(filename_input);
+		} else if (DIM == 4) {
+			initialperformance4(filename_input);
 		} else {
 			System.out.println("DIM is error!");
 			return;
@@ -452,6 +486,8 @@ public class GMRF {
 			initialperformance2(filename_input);
 		} else if (DIM == 3) {
 			initialperformance3(filename_input);
+		} else if (DIM == 4) {
+			initialperformance4(filename_input);
 		} else {
 			System.out.println("DIM is error!");
 			return;
@@ -490,8 +526,13 @@ public class GMRF {
 	public static void main(String[] args) {
 		GMRF g = new GMRF();
 		g.setparameter(args);
-		//g.runUCB();
-		g.runTS();
+		if (g.bandit_type.equalsIgnoreCase("UCB")) {
+			g.runUCB();
+		} else if (g.bandit_type.equalsIgnoreCase("TS")) {
+			g.runTS();
+		} else {
+			System.out.println("BANDIT TYPE is invalid! (" + g.bandit_type + ")");
+		}
 	}
 
 }
